@@ -1,0 +1,58 @@
+# ── Netlify Configuration ─────────────────────────────────────────────────────
+# Build dari root monorepo, output ke dist/public milik emc-admission.
+
+[build]
+  publish = "artifacts/emc-admission/dist/public"
+  command = "pnpm install && pnpm --filter @workspace/emc-admission run build"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[build.environment]
+  # Flag build-time agar hasApiProxy() mendeteksi Netlify Functions tersedia
+  VITE_HAS_API_PROXY = "true"
+
+# ── Redirect: /api/trakcare/* → Netlify Functions ─────────────────────────────
+[[redirects]]
+  from = "/api/trakcare/patients"
+  to   = "/.netlify/functions/trakcare-patients"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/trakcare/discharge"
+  to   = "/.netlify/functions/trakcare-discharge"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/trakcare/igd-patients"
+  to   = "/.netlify/functions/trakcare-igd-patients"
+  status = 200
+  force  = true
+
+# ── Redirect: /api/cloud/* → Netlify Functions ────────────────────────────────
+[[redirects]]
+  from = "/api/cloud/status"
+  to   = "/.netlify/functions/cloud-status"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/cloud/backup"
+  to   = "/.netlify/functions/cloud-backup"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/cloud/restore"
+  to   = "/.netlify/functions/cloud-restore"
+  status = 200
+  force  = true
+
+# ── SPA fallback ──────────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
