@@ -421,6 +421,28 @@ function NotifikasiBillingTab() {
                     <p className="text-xs text-muted-foreground">Hari Rawat</p>
                     <p className="font-bold text-primary text-base">Hari ke-{hariRawat}</p>
                   </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground mb-0.5">No. HP Penanggung Jawab</p>
+                    {p.noHpPJ ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5" /> {p.noHpPJ}
+                        </span>
+                        <a
+                          href={waLink(p.noHpPJ, buildBillingMessage(p, hariRawat, estimasiNum))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#25D366]/10 text-[#128C7E] border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors"
+                        >
+                          <MessageCircle className="w-3 h-3" /> WhatsApp
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5" /> No. HP Penanggung Jawab belum diisi.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Estimasi billing input */}
