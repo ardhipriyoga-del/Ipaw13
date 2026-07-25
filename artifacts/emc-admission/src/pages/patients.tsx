@@ -1378,20 +1378,11 @@ function PayorBadge({ payor }: { payor?: string }) {
   let cls = '';
   let dot = '';
   if (upper.includes('BPJS')) {
-    cls = 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-700';
-    dot = 'bg-teal-500';
-  } else if (upper.includes('ASURANSI') || upper.includes('INSURANCE') || upper.includes('AXA') || upper.includes('ALLIANZ') || upper.includes('PRUDENTIAL') || upper.includes('MANULIFE') || upper.includes('CIGNA') || upper.includes('INHEALTH') || upper.includes('SINARMAS')) {
-    cls = 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700';
-    dot = 'bg-purple-500';
-  } else if (upper.includes('PERUSAHAAN') || upper.includes('COMPANY') || upper.includes('CORPORATE') || upper.includes('PLN') || upper.includes('PERTAMINA') || upper.includes('JASA RAHARJA')) {
-    cls = 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700';
-    dot = 'bg-orange-500';
-  } else if (upper.includes('UMUM') || upper.includes('PRIBADI') || upper.includes('PERSONAL') || upper.includes('TUNAI') || upper.includes('CASH')) {
-    cls = 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600';
-    dot = 'bg-slate-500';
-  } else {
     cls = 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700';
     dot = 'bg-blue-500';
+  } else {
+    cls = 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700';
+    dot = 'bg-emerald-500';
   }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}`}>
