@@ -136,24 +136,65 @@ export default function Dashboard() {
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   // ── IGD SPRI ──────────────────────────────────────────────────────────────
-  const playNotif = useCallback(() => {
+  // Siren: sweeping wee-woo for new IGD SPRI patients
+  const playSiren = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const notes = [880, 1100, 880];
-      notes.forEach((freq, i) => {
-        const offset = i * 0.18;
+      const CYCLES = 3;
+      const CYCLE_DURATION = 0.55; // seconds per wee-woo cycle
+      for (let c = 0; c < CYCLES; c++) {
+        const t0 = ctx.currentTime + c * CYCLE_DURATION;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.15);
-        osc.start(ctx.currentTime + offset);
-        osc.stop(ctx.currentTime + offset + 0.15);
+        osc.type = 'sawtooth';
+        // Sweep up
+        osc.frequency.setValueAtTime(550, t0);
+        osc.frequency.linearRampToValueAtTime(1050, t0 + CYCLE_DURATION * 0.5);
+        // Sweep down
+        osc.frequency.linearRampToValueAtTime(550, t0 + CYCLE_DURATION);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(0.25, t0 + 0.05);
+        gain.gain.setValueAtTime(0.25, t0 + CYCLE_DURATION - 0.05);
+        gain.gain.linearRampToValueAtTime(0, t0 + CYCLE_DURATION);
+        osc.start(t0);
+        osc.stop(t0 + CYCLE_DURATION);
+      }
+    } catch { /* AudioContext not available or blocked */ }
+  }, []);
+
+  // Bell: ding-dong for rencana pulang farmasi selesai
+  const playBell = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Two bell tones: "ding" then "dong"
+      const tones = [
+        { freq: 1175, delay: 0,    duration: 1.2 },
+        { freq:  880, delay: 0.45, duration: 1.4 },
+      ];
+      tones.forEach(({ freq, delay, duration }) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        // Add subtle harmonic
+        const osc2  = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc.connect(gain);   gain.connect(ctx.destination);
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc.type  = 'sine';  osc.frequency.value  = freq;
+        osc2.type = 'sine';  osc2.frequency.value = freq * 2.756; // inharmonic partial
+        const t = ctx.currentTime + delay;
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        gain2.gain.setValueAtTime(0.12, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.6);
+        osc.start(t);  osc.stop(t + duration);
+        osc2.start(t); osc2.stop(t + duration);
       });
     } catch { /* AudioContext not available or blocked */ }
   }, []);
+
+  const prevPharmacyRMs = useRef<Set<string>>(new Set());
+  const dischargeFirstLoad = useRef(true);
 
   const fetchDischargePlan = useCallback(async () => {
     setDischargeLoading(true);
@@ -193,6 +234,20 @@ export default function Dashboard() {
       const sorted = Array.from(map.values()).reverse().sort(
         (a, b) => DISCHARGE_STATUS_META[a.status].priority - DISCHARGE_STATUS_META[b.status].priority
       );
+      // Detect newly-added pharmacy patients and play bell
+      if (!dischargeFirstLoad.current) {
+        const pharmacyPatients = Array.from(map.values()).filter(p => p.status === 'pharmacy');
+        const added = pharmacyPatients.filter(p => !prevPharmacyRMs.current.has(p.noRM));
+        if (added.length > 0) {
+          playBell();
+          toast.success(`${added.length} pasien rencana pulang farmasi selesai: ${added.map(p => p.namaPasien).join(', ')}`);
+        }
+      }
+      dischargeFirstLoad.current = false;
+      prevPharmacyRMs.current = new Set(
+        Array.from(map.values()).filter(p => p.status === 'pharmacy').map(p => p.noRM)
+      );
+
       setDischargePlan(sorted);
       setDischargeLastFetch(new Date().toLocaleTimeString('id-ID'));
     } catch (e: any) {
@@ -200,7 +255,7 @@ export default function Dashboard() {
     } finally {
       setDischargeLoading(false);
     }
-  }, []);
+  }, [playBell]);
 
   const fetchIGD = useCallback(async () => {
     setIgdLoading(true);
@@ -213,7 +268,7 @@ export default function Dashboard() {
       if (!igdFirstLoad.current) {
         const added = patients.filter(p => !prevIgdRMs.current.has(p.noRM));
         if (added.length > 0) {
-          playNotif();
+          playSiren();
           toast.success(`${added.length} pasien IGD baru punya SPRI: ${added.map(p => p.nama).join(', ')}`);
         }
       }
@@ -235,7 +290,7 @@ export default function Dashboard() {
     } finally {
       setIgdLoading(false);
     }
-  }, [playNotif]);
+  }, [playSiren]);
 
   useEffect(() => {
     fetchIGD();
