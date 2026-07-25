@@ -64,6 +64,16 @@ export default function Dashboard() {
   const prevIgdRMs = useRef<Set<string>>(new Set());
   const igdFirstLoad = useRef(true);
 
+  // Notif sound loop state
+  const [sirenActive, setSirenActive] = useState(false);
+  const [bellActive,  setBellActive]  = useState(false);
+  const sirenLoopRef  = useRef(false);
+  const bellLoopRef   = useRef(false);
+  const sirenCtxRef   = useRef<AudioContext | null>(null);
+  const bellCtxRef    = useRef<AudioContext | null>(null);
+  const [sirenLabel, setSirenLabel] = useState('');
+  const [bellLabel,  setBellLabel]  = useState('');
+
   // Rencana Pasien Pulang state
   const [dischargePlan, setDischargePlan] = useState<DischargePatient[]>([]);
   const [dischargeLoading, setDischargeLoading] = useState(false);
@@ -136,61 +146,84 @@ export default function Dashboard() {
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   // ── IGD SPRI ──────────────────────────────────────────────────────────────
-  // Siren: sweeping wee-woo for new IGD SPRI patients
-  const playSiren = useCallback(() => {
+  const stopSiren = useCallback(() => {
+    sirenLoopRef.current = false;
+    setSirenActive(false);
+    try { sirenCtxRef.current?.close(); } catch { /* ignore */ }
+    sirenCtxRef.current = null;
+  }, []);
+
+  const startSiren = useCallback((label: string) => {
+    if (sirenLoopRef.current) { setSirenLabel(label); return; }
+    sirenLoopRef.current = true;
+    setSirenActive(true);
+    setSirenLabel(label);
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const CYCLES = 3;
-      const CYCLE_DURATION = 0.55; // seconds per wee-woo cycle
-      for (let c = 0; c < CYCLES; c++) {
-        const t0 = ctx.currentTime + c * CYCLE_DURATION;
-        const osc = ctx.createOscillator();
+      sirenCtxRef.current = ctx;
+      const CYCLE = 0.55;
+      const tick = () => {
+        if (!sirenLoopRef.current) { try { ctx.close(); } catch { /* ignore */ } return; }
+        const t0 = ctx.currentTime;
+        const osc  = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain); gain.connect(ctx.destination);
         osc.type = 'sawtooth';
-        // Sweep up
         osc.frequency.setValueAtTime(550, t0);
-        osc.frequency.linearRampToValueAtTime(1050, t0 + CYCLE_DURATION * 0.5);
-        // Sweep down
-        osc.frequency.linearRampToValueAtTime(550, t0 + CYCLE_DURATION);
-        gain.gain.setValueAtTime(0, t0);
+        osc.frequency.linearRampToValueAtTime(1050, t0 + CYCLE * 0.5);
+        osc.frequency.linearRampToValueAtTime(550,  t0 + CYCLE);
+        gain.gain.setValueAtTime(0,    t0);
         gain.gain.linearRampToValueAtTime(0.25, t0 + 0.05);
-        gain.gain.setValueAtTime(0.25, t0 + CYCLE_DURATION - 0.05);
-        gain.gain.linearRampToValueAtTime(0, t0 + CYCLE_DURATION);
-        osc.start(t0);
-        osc.stop(t0 + CYCLE_DURATION);
-      }
-    } catch { /* AudioContext not available or blocked */ }
+        gain.gain.setValueAtTime(0.25, t0 + CYCLE - 0.05);
+        gain.gain.linearRampToValueAtTime(0,    t0 + CYCLE);
+        osc.start(t0); osc.stop(t0 + CYCLE);
+        setTimeout(tick, CYCLE * 1000);
+      };
+      tick();
+    } catch { sirenLoopRef.current = false; setSirenActive(false); }
   }, []);
 
-  // Bell: ding-dong for rencana pulang farmasi selesai
-  const playBell = useCallback(() => {
+  // Bell: ding-dong loop for rencana pulang farmasi selesai
+  const stopBell = useCallback(() => {
+    bellLoopRef.current = false;
+    setBellActive(false);
+    try { bellCtxRef.current?.close(); } catch { /* ignore */ }
+    bellCtxRef.current = null;
+  }, []);
+
+  const startBell = useCallback((label: string) => {
+    if (bellLoopRef.current) { setBellLabel(label); return; }
+    bellLoopRef.current = true;
+    setBellActive(true);
+    setBellLabel(label);
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      // Two bell tones: "ding" then "dong"
-      const tones = [
-        { freq: 1175, delay: 0,    duration: 1.2 },
-        { freq:  880, delay: 0.45, duration: 1.4 },
-      ];
-      tones.forEach(({ freq, delay, duration }) => {
-        const osc  = ctx.createOscillator();
-        const gain = ctx.createGain();
-        // Add subtle harmonic
-        const osc2  = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc.connect(gain);   gain.connect(ctx.destination);
-        osc2.connect(gain2); gain2.connect(ctx.destination);
-        osc.type  = 'sine';  osc.frequency.value  = freq;
-        osc2.type = 'sine';  osc2.frequency.value = freq * 2.756; // inharmonic partial
-        const t = ctx.currentTime + delay;
-        gain.gain.setValueAtTime(0.35, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-        gain2.gain.setValueAtTime(0.12, t);
-        gain2.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.6);
-        osc.start(t);  osc.stop(t + duration);
-        osc2.start(t); osc2.stop(t + duration);
-      });
-    } catch { /* AudioContext not available or blocked */ }
+      bellCtxRef.current = ctx;
+      const DING_DONG = 2.2; // total period (ding + dong + pause)
+      const tick = () => {
+        if (!bellLoopRef.current) { try { ctx.close(); } catch { /* ignore */ } return; }
+        const tones = [
+          { freq: 1175, delay: 0,    dur: 1.2 },
+          { freq:  880, delay: 0.5,  dur: 1.4 },
+        ];
+        tones.forEach(({ freq, delay, dur }) => {
+          const t = ctx.currentTime + delay;
+          [freq, freq * 2.756].forEach((f, i) => {
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.value = f;
+            const vol = i === 0 ? 0.35 : 0.12;
+            const d   = i === 0 ? dur  : dur * 0.6;
+            g.gain.setValueAtTime(vol, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + d);
+            osc.start(t); osc.stop(t + d);
+          });
+        });
+        setTimeout(tick, DING_DONG * 1000);
+      };
+      tick();
+    } catch { bellLoopRef.current = false; setBellActive(false); }
   }, []);
 
   const prevPharmacyRMs = useRef<Set<string>>(new Set());
@@ -239,8 +272,7 @@ export default function Dashboard() {
         const pharmacyPatients = Array.from(map.values()).filter(p => p.status === 'pharmacy');
         const added = pharmacyPatients.filter(p => !prevPharmacyRMs.current.has(p.noRM));
         if (added.length > 0) {
-          playBell();
-          toast.success(`${added.length} pasien rencana pulang farmasi selesai: ${added.map(p => p.namaPasien).join(', ')}`);
+          startBell(added.map(p => p.namaPasien).join(', '));
         }
       }
       dischargeFirstLoad.current = false;
@@ -255,7 +287,7 @@ export default function Dashboard() {
     } finally {
       setDischargeLoading(false);
     }
-  }, [playBell]);
+  }, [startBell]);
 
   const fetchIGD = useCallback(async () => {
     setIgdLoading(true);
@@ -268,8 +300,7 @@ export default function Dashboard() {
       if (!igdFirstLoad.current) {
         const added = patients.filter(p => !prevIgdRMs.current.has(p.noRM));
         if (added.length > 0) {
-          playSiren();
-          toast.success(`${added.length} pasien IGD baru punya SPRI: ${added.map(p => p.nama).join(', ')}`);
+          startSiren(added.map(p => p.nama).join(', '));
         }
       }
       igdFirstLoad.current = false;
@@ -290,7 +321,7 @@ export default function Dashboard() {
     } finally {
       setIgdLoading(false);
     }
-  }, [playSiren]);
+  }, [startSiren]);
 
   useEffect(() => {
     fetchIGD();
@@ -421,6 +452,45 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+
+      {/* ── Notif banner: IGD SPRI siren ── */}
+      {sirenActive && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-5 py-3 shadow-md animate-pulse">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-2xl shrink-0">🚨</span>
+            <div className="min-w-0">
+              <p className="font-bold text-red-700 dark:text-red-400 text-sm">Pasien IGD Sudah SPRI</p>
+              <p className="text-xs text-red-600 dark:text-red-300 truncate">{sirenLabel}</p>
+            </div>
+          </div>
+          <button
+            onClick={stopSiren}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Stop
+          </button>
+        </div>
+      )}
+
+      {/* ── Notif banner: Farmasi Selesai bell ── */}
+      {bellActive && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700 px-5 py-3 shadow-md animate-pulse">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-2xl shrink-0">🔔</span>
+            <div className="min-w-0">
+              <p className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">Rencana Pulang — Farmasi Selesai</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-300 truncate">{bellLabel}</p>
+            </div>
+          </div>
+          <button
+            onClick={stopBell}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Stop
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
