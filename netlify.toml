@@ -1,0 +1,42 @@
+[build]
+  command   = "pnpm install && pnpm --filter @workspace/emc-admission run build"
+  publish   = "artifacts/emc-admission/dist/public"
+  functions = "artifacts/emc-admission/netlify/functions"
+
+[build.environment]
+  NODE_VERSION       = "20"
+  VITE_HAS_API_PROXY = "true"
+
+# ── AI Assistant ──────────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/ai/chat"
+  to     = "/.netlify/functions/ai-chat"
+  status = 200
+  force  = true
+
+# ── TrakCare proxy ────────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/trakcare/*"
+  to     = "/.netlify/functions/trakcare-proxy"
+  status = 200
+  force  = true
+
+# ── Cloud / GAS proxy ─────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/cloud/*"
+  to     = "/.netlify/functions/cloud-proxy"
+  status = 200
+  force  = true
+
+# ── Health check ──────────────────────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/healthz"
+  to     = "/.netlify/functions/healthz"
+  status = 200
+  force  = true
+
+# ── SPA fallback (must be last) ───────────────────────────────────────────────
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
