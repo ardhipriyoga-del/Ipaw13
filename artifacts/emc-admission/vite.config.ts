@@ -60,6 +60,14 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
     fs: { strict: true },
+    proxy: {
+      // Forward /api/* to the Express API server in Replit dev mode.
+      // This is only active during `vite dev` (not production builds).
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,

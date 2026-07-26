@@ -1,0 +1,1 @@
+- [Vite proxy for Replit dev](vite-proxy-replit.md) — /api/* must be proxied to localhost:8080; without it, app stuck on loading screen forever.
