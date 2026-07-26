@@ -129,7 +129,7 @@ export default function Login() {
 
           <div className="h-px w-10 bg-white/40" />
 
-          <p className="text-white/70 text-xs font-medium tracking-wide">RS EMC Pekayon</p>
+          <p className="text-white/70 text-xs font-medium tracking-wide">Ruang Kerja Digital untuk Operasional Internal Rumah Sakit</p>
         </div>
 
         {/* ── Right panel ── */}
